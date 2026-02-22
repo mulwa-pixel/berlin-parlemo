@@ -1,0 +1,1341 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>BERLIN PARLEMO — Probability Machine</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"/>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet"/>
+<script src="https://unpkg.com/react@18/umd/react.development.js"></script>
+<script src="https://unpkg.com/react-dom@18/umd/react-dom.development.js"></script>
+<script src="https://unpkg.com/@babel/standalone/babel.min.js"></script>
+<style>
+:root {
+  --bg:        #080c10;
+  --bg2:       #0d1117;
+  --bg3:       #131920;
+  --border:    #1e2d3d;
+  --accent:    #00e5ff;
+  --accent2:   #ff3d71;
+  --accent3:   #ffe600;
+  --green:     #00ff87;
+  --purple:    #a855f7;
+  --text:      #e8edf2;
+  --muted:     #4a6070;
+  --mono:      'Space Mono', monospace;
+  --display:   'Bebas Neue', sans-serif;
+  --sans:      'DM Sans', sans-serif;
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { font-size: 14px; }
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: var(--sans);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+/* Scanline overlay */
+body::before {
+  content: '';
+  position: fixed; inset: 0; z-index: 999; pointer-events: none;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,0,0,0.03) 2px, rgba(0,0,0,0.03) 4px);
+}
+/* Noise texture */
+body::after {
+  content: '';
+  position: fixed; inset: 0; z-index: 998; pointer-events: none;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* ── Scrollbar ── */
+::-webkit-scrollbar { width: 4px; height: 4px; }
+::-webkit-scrollbar-track { background: var(--bg2); }
+::-webkit-scrollbar-thumb { background: var(--border); border-radius: 2px; }
+
+/* ── Layout ── */
+#root { display: flex; flex-direction: column; min-height: 100vh; }
+.app { display: grid; grid-template-rows: 56px 1fr; min-height: 100vh; }
+
+/* ── Header ── */
+.header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 24px;
+  background: var(--bg2);
+  border-bottom: 1px solid var(--border);
+  position: sticky; top: 0; z-index: 100;
+}
+.header-brand {
+  display: flex; align-items: center; gap: 12px;
+}
+.header-logo {
+  font-family: var(--display);
+  font-size: 26px;
+  letter-spacing: 4px;
+  background: linear-gradient(135deg, var(--accent), var(--green));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.header-sub {
+  font-family: var(--mono);
+  font-size: 9px;
+  color: var(--muted);
+  letter-spacing: 3px;
+  text-transform: uppercase;
+}
+.header-status {
+  display: flex; align-items: center; gap: 8px;
+  font-family: var(--mono); font-size: 10px; color: var(--muted);
+}
+.status-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  background: var(--green);
+  box-shadow: 0 0 8px var(--green);
+  animation: pulse 2s infinite;
+}
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+.header-nav { display: flex; gap: 2px; }
+.nav-btn {
+  padding: 6px 14px;
+  background: none; border: none; cursor: pointer;
+  font-family: var(--mono); font-size: 10px;
+  color: var(--muted); letter-spacing: 1px;
+  border-radius: 4px; transition: all 0.2s;
+  text-transform: uppercase;
+}
+.nav-btn:hover { color: var(--text); background: var(--bg3); }
+.nav-btn.active { color: var(--accent); background: rgba(0,229,255,0.08); }
+
+/* ── Main body ── */
+.main { display: grid; grid-template-columns: 220px 1fr 300px; height: calc(100vh - 56px); overflow: hidden; }
+
+/* ── Sidebar ── */
+.sidebar {
+  background: var(--bg2);
+  border-right: 1px solid var(--border);
+  overflow-y: auto;
+  padding: 16px 12px;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.sidebar-label {
+  font-family: var(--mono); font-size: 9px; color: var(--muted);
+  letter-spacing: 3px; text-transform: uppercase;
+  padding: 8px 8px 4px;
+}
+.market-btn {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px;
+  border-radius: 6px;
+  cursor: pointer; border: 1px solid transparent;
+  background: none; width: 100%;
+  transition: all 0.2s;
+}
+.market-btn:hover { background: var(--bg3); border-color: var(--border); }
+.market-btn.active { background: rgba(0,229,255,0.07); border-color: rgba(0,229,255,0.25); }
+.market-name { font-family: var(--mono); font-size: 11px; color: var(--text); font-weight: 700; }
+.market-state-badge {
+  font-family: var(--mono); font-size: 8px; padding: 2px 6px;
+  border-radius: 3px; letter-spacing: 1px; text-transform: uppercase; font-weight: 700;
+}
+.state-MEAN_REVERSION { background: rgba(0,255,135,0.15); color: var(--green); }
+.state-TRENDING { background: rgba(255,230,0,0.12); color: var(--accent3); }
+.state-RANDOM { background: rgba(255,61,113,0.12); color: var(--accent2); }
+.state-INSUFFICIENT_DATA { background: rgba(74,96,112,0.15); color: var(--muted); }
+.state-NO_TRADE_ZONE { background: rgba(255,61,113,0.12); color: var(--accent2); }
+.market-signals-count {
+  display: flex; align-items: center; justify-content: center;
+  width: 18px; height: 18px; border-radius: 50%;
+  font-family: var(--mono); font-size: 9px; font-weight: 700;
+  background: var(--accent); color: var(--bg);
+}
+.market-digit {
+  font-family: var(--mono); font-size: 20px; font-weight: 700;
+  color: var(--accent);
+}
+.sidebar-section { margin-top: 16px; }
+.kill-switch-btn {
+  width: 100%; padding: 10px;
+  background: rgba(255,61,113,0.1);
+  border: 1px solid rgba(255,61,113,0.3);
+  border-radius: 6px; cursor: pointer;
+  font-family: var(--mono); font-size: 10px; color: var(--accent2);
+  letter-spacing: 2px; text-transform: uppercase; font-weight: 700;
+  transition: all 0.2s;
+}
+.kill-switch-btn:hover { background: rgba(255,61,113,0.2); }
+.kill-switch-btn.armed { background: var(--accent2); color: var(--bg); }
+
+/* ── Center panel ── */
+.center-panel { display: flex; flex-direction: column; overflow: hidden; }
+
+/* ── Tabs ── */
+.panel-tabs {
+  display: flex; border-bottom: 1px solid var(--border);
+  padding: 0 20px;
+  background: var(--bg2);
+}
+.panel-tab {
+  padding: 12px 18px;
+  font-family: var(--mono); font-size: 10px; letter-spacing: 1.5px;
+  text-transform: uppercase; color: var(--muted);
+  border: none; background: none; cursor: pointer;
+  border-bottom: 2px solid transparent;
+  transition: all 0.2s; margin-bottom: -1px;
+}
+.panel-tab:hover { color: var(--text); }
+.panel-tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+
+.panel-body { flex: 1; overflow-y: auto; padding: 20px; }
+
+/* ── Digit Heatmap ── */
+.heatmap-grid {
+  display: grid; grid-template-columns: repeat(10, 1fr);
+  gap: 6px; margin-bottom: 20px;
+}
+.heatmap-cell {
+  aspect-ratio: 1;
+  border-radius: 8px;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  border: 1px solid var(--border);
+  cursor: pointer; transition: all 0.3s;
+  position: relative; overflow: hidden;
+}
+.heatmap-cell::before {
+  content: '';
+  position: absolute; inset: 0;
+  background: var(--cell-color, transparent);
+  opacity: var(--cell-opacity, 0);
+  transition: all 0.3s;
+}
+.heatmap-cell:hover { transform: scale(1.05); border-color: var(--accent); }
+.cell-digit {
+  font-family: var(--display); font-size: 28px;
+  position: relative; z-index: 1;
+}
+.cell-pct {
+  font-family: var(--mono); font-size: 9px; color: var(--muted);
+  position: relative; z-index: 1;
+}
+.cell-z {
+  font-family: var(--mono); font-size: 8px;
+  position: relative; z-index: 1;
+}
+
+/* ── Tick Stream ── */
+.tick-stream {
+  display: flex; flex-wrap: nowrap; gap: 4px; overflow-x: hidden;
+  padding: 12px 0;
+}
+.tick-bubble {
+  flex-shrink: 0;
+  width: 28px; height: 28px; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  border: 1px solid var(--border);
+  animation: tickIn 0.3s ease;
+}
+@keyframes tickIn { from{transform:scale(0) translateX(20px);opacity:0} to{transform:scale(1) translateX(0);opacity:1} }
+
+/* ── Cards ── */
+.card {
+  background: var(--bg2);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 16px;
+  margin-bottom: 16px;
+}
+.card-title {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 3px;
+  text-transform: uppercase; color: var(--muted);
+  margin-bottom: 12px;
+}
+
+/* ── Metric Row ── */
+.metric-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 16px; }
+.metric {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 8px; padding: 14px;
+  display: flex; flex-direction: column; gap: 4px;
+}
+.metric-label { font-family: var(--mono); font-size: 8px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+.metric-value { font-family: var(--display); font-size: 28px; line-height: 1; }
+.metric-sub { font-family: var(--mono); font-size: 9px; color: var(--muted); }
+.val-green { color: var(--green); }
+.val-red { color: var(--accent2); }
+.val-yellow { color: var(--accent3); }
+.val-blue { color: var(--accent); }
+.val-purple { color: var(--purple); }
+
+/* ── Markov Matrix ── */
+.markov-wrap { overflow-x: auto; }
+.markov-table { border-collapse: collapse; width: 100%; }
+.markov-table th, .markov-table td {
+  padding: 6px 8px; font-family: var(--mono); font-size: 10px;
+  text-align: center; border: 1px solid var(--border);
+}
+.markov-table th { color: var(--muted); background: var(--bg3); }
+.markov-cell { border-radius: 3px; }
+
+/* ── Signals Panel ── */
+.right-panel {
+  background: var(--bg2); border-left: 1px solid var(--border);
+  overflow-y: auto; display: flex; flex-direction: column;
+}
+.right-header {
+  padding: 14px 16px;
+  border-bottom: 1px solid var(--border);
+  font-family: var(--display); font-size: 18px; letter-spacing: 2px;
+  display: flex; align-items: center; justify-content: space-between;
+}
+.signal-count-badge {
+  background: var(--accent); color: var(--bg);
+  font-family: var(--mono); font-size: 10px; font-weight: 700;
+  padding: 2px 8px; border-radius: 20px;
+}
+.signals-list { padding: 12px; display: flex; flex-direction: column; gap: 8px; flex: 1; }
+.signal-card {
+  border-radius: 8px; padding: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg3);
+  position: relative; overflow: hidden;
+  cursor: pointer; transition: all 0.2s;
+}
+.signal-card::before {
+  content: '';
+  position: absolute; left: 0; top: 0; bottom: 0;
+  width: 3px;
+}
+.signal-card.conf-high::before { background: var(--green); }
+.signal-card.conf-med::before { background: var(--accent3); }
+.signal-card.conf-low::before { background: var(--accent); }
+.signal-card:hover { border-color: var(--accent); transform: translateX(2px); }
+.signal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; }
+.signal-type {
+  font-family: var(--mono); font-size: 9px; letter-spacing: 2px;
+  color: var(--muted); text-transform: uppercase;
+}
+.signal-conf {
+  font-family: var(--display); font-size: 22px; line-height: 1;
+}
+.signal-action {
+  font-family: var(--mono); font-size: 11px; font-weight: 700;
+  color: var(--accent);
+  margin-bottom: 6px;
+}
+.signal-meta { display: flex; flex-wrap: wrap; gap: 4px; }
+.signal-tag {
+  font-family: var(--mono); font-size: 8px; letter-spacing: 1px;
+  padding: 2px 6px; border-radius: 3px;
+  background: var(--bg); color: var(--muted);
+  border: 1px solid var(--border);
+}
+.execute-btn {
+  width: 100%; margin-top: 10px; padding: 8px;
+  background: var(--accent); color: var(--bg);
+  border: none; border-radius: 5px; cursor: pointer;
+  font-family: var(--mono); font-size: 9px; font-weight: 700;
+  letter-spacing: 2px; text-transform: uppercase;
+  transition: all 0.2s;
+}
+.execute-btn:hover { background: var(--green); }
+.no-signal {
+  text-align: center; padding: 40px 20px;
+  font-family: var(--mono); font-size: 10px; color: var(--muted);
+  line-height: 2;
+}
+.no-trade-zone {
+  background: rgba(255,61,113,0.08);
+  border: 1px solid rgba(255,61,113,0.2);
+  border-radius: 8px; padding: 16px;
+  text-align: center;
+  font-family: var(--mono); font-size: 10px; color: var(--accent2);
+  letter-spacing: 1px;
+}
+
+/* ── Streak bars ── */
+.streak-grid { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.streak-item {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 6px; padding: 10px;
+}
+.streak-digit { font-family: var(--display); font-size: 24px; line-height: 1; }
+.streak-bar-wrap { margin: 6px 0; height: 4px; background: var(--border); border-radius: 2px; overflow: hidden; }
+.streak-bar { height: 100%; border-radius: 2px; transition: width 0.5s; }
+.streak-info { font-family: var(--mono); font-size: 8px; color: var(--muted); }
+
+/* ── Auto-trade panel ── */
+.trade-form { display: flex; flex-direction: column; gap: 12px; padding: 16px; }
+.trade-field { display: flex; flex-direction: column; gap: 4px; }
+.trade-label { font-family: var(--mono); font-size: 9px; color: var(--muted); letter-spacing: 2px; text-transform: uppercase; }
+.trade-input, .trade-select {
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 6px; padding: 8px 12px;
+  color: var(--text); font-family: var(--mono); font-size: 12px;
+  outline: none; transition: border-color 0.2s;
+}
+.trade-input:focus, .trade-select:focus { border-color: var(--accent); }
+.trade-select option { background: var(--bg3); }
+.risk-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+.risk-btn {
+  padding: 8px; border-radius: 5px; cursor: pointer;
+  font-family: var(--mono); font-size: 9px; font-weight: 700;
+  border: 1px solid var(--border); background: var(--bg3); color: var(--muted);
+  text-transform: uppercase; letter-spacing: 1px; transition: all 0.2s;
+}
+.risk-btn.selected { border-color: var(--accent); color: var(--accent); background: rgba(0,229,255,0.08); }
+.trade-execute-btn {
+  padding: 12px;
+  background: linear-gradient(135deg, var(--accent), var(--green));
+  border: none; border-radius: 6px; cursor: pointer;
+  font-family: var(--display); font-size: 18px; letter-spacing: 2px;
+  color: var(--bg); transition: all 0.2s;
+}
+.trade-execute-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+.trade-execute-btn:disabled { opacity: 0.4; cursor: not-allowed; transform: none; }
+.trade-log {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  max-height: 200px; overflow-y: auto;
+}
+.trade-log-entry {
+  font-family: var(--mono); font-size: 9px;
+  padding: 4px 0; border-bottom: 1px solid var(--border);
+  color: var(--muted);
+}
+.trade-log-entry.success { color: var(--green); }
+.trade-log-entry.error { color: var(--accent2); }
+
+/* ── Analytics lab ── */
+.backtest-table { width: 100%; border-collapse: collapse; }
+.backtest-table th, .backtest-table td {
+  padding: 8px 12px; border: 1px solid var(--border);
+  font-family: var(--mono); font-size: 10px; text-align: left;
+}
+.backtest-table th { background: var(--bg3); color: var(--muted); letter-spacing: 1px; }
+
+/* ── Connect modal ── */
+.modal-overlay {
+  position: fixed; inset: 0; z-index: 500;
+  background: rgba(8,12,16,0.95);
+  display: flex; align-items: center; justify-content: center;
+  backdrop-filter: blur(4px);
+}
+.modal-box {
+  background: var(--bg2); border: 1px solid var(--border);
+  border-radius: 12px; padding: 32px;
+  width: 420px; max-width: 90vw;
+}
+.modal-title {
+  font-family: var(--display); font-size: 32px; letter-spacing: 3px;
+  background: linear-gradient(135deg, var(--accent), var(--green));
+  -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+  margin-bottom: 4px;
+}
+.modal-sub { font-family: var(--mono); font-size: 9px; color: var(--muted); letter-spacing: 3px; margin-bottom: 24px; }
+.modal-input {
+  width: 100%; padding: 12px 14px;
+  background: var(--bg3); border: 1px solid var(--border);
+  border-radius: 6px; color: var(--text);
+  font-family: var(--mono); font-size: 12px; outline: none;
+  transition: border-color 0.2s; margin-bottom: 12px;
+}
+.modal-input:focus { border-color: var(--accent); }
+.modal-connect-btn {
+  width: 100%; padding: 14px;
+  background: linear-gradient(135deg, var(--accent), var(--green));
+  border: none; border-radius: 6px; cursor: pointer;
+  font-family: var(--display); font-size: 20px; letter-spacing: 3px;
+  color: var(--bg); transition: opacity 0.2s;
+}
+.modal-connect-btn:hover { opacity: 0.9; }
+.modal-skip { text-align: center; margin-top: 10px; }
+.modal-skip button {
+  background: none; border: none; cursor: pointer;
+  font-family: var(--mono); font-size: 9px; color: var(--muted);
+  text-decoration: underline;
+}
+
+/* ── Responsive ── */
+@media (max-width: 1100px) {
+  .main { grid-template-columns: 180px 1fr 260px; }
+  .metric-row { grid-template-columns: repeat(2, 1fr); }
+}
+@media (max-width: 768px) {
+  .main { grid-template-columns: 1fr; }
+  .sidebar, .right-panel { display: none; }
+}
+
+/* ── Confidence ring ── */
+.conf-ring {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 48px; height: 48px; border-radius: 50%;
+  font-family: var(--display); font-size: 16px;
+  border: 2px solid;
+}
+.conf-ring.high { border-color: var(--green); color: var(--green); }
+.conf-ring.med { border-color: var(--accent3); color: var(--accent3); }
+.conf-ring.low { border-color: var(--accent); color: var(--accent); }
+
+/* ── Loading ── */
+.loading-bar {
+  height: 2px; background: linear-gradient(90deg, var(--accent), var(--green));
+  animation: loading 1.5s infinite;
+}
+@keyframes loading { 0%{width:0;opacity:1} 100%{width:100%;opacity:0} }
+</style>
+</head>
+<body>
+<div id="root"></div>
+
+<script type="text/babel">
+const { useState, useEffect, useRef, useCallback } = React;
+
+// ── Constants ──────────────────────────────────────────────────────────────────
+const MARKETS = ['R_10','R_25','R_50','R_75','R_100'];
+const MARKET_LABELS = { R_10:'Volatility 10',R_25:'Volatility 25',R_50:'Volatility 50',R_75:'Volatility 75',R_100:'Volatility 100' };
+const BACKEND_WS = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host.replace(/:\d+/, '') + ':3001';
+
+// ── Deriv Direct (fallback if no backend) ─────────────────────────────────────
+const DERIV_WS = 'wss://ws.binaryws.com/websockets/v3?app_id=1089';
+
+// ── Probability Engine (client-side mirror) ───────────────────────────────────
+function computeFrequency(ticks, window = null) {
+  const src = window ? ticks.slice(-window) : ticks;
+  const f = Array(10).fill(0);
+  src.forEach(d => f[d]++);
+  const n = src.length || 1;
+  return f.map(v => v / n);
+}
+
+function computeZScores(freq) {
+  const expected = 0.1;
+  const stdDev = Math.sqrt(expected * 0.9 / 50);
+  return freq.map(f => (f - expected) / stdDev);
+}
+
+function computeStreaks(ticks) {
+  return Array.from({length:10}, (_,digit) => {
+    let streak = 0;
+    for (let i = ticks.length - 1; i >= 0; i--) {
+      if (ticks[i] !== digit) streak++;
+      else break;
+    }
+    const p = Math.min(99, Math.round((1 - Math.pow(0.9, streak)) * 100));
+    return { digit, streak, percentile: p };
+  });
+}
+
+function buildMarkov(ticks) {
+  const matrix = Array.from({length:10}, () => Array(10).fill(0));
+  const counts = Array(10).fill(0);
+  for (let i = 1; i < ticks.length; i++) {
+    matrix[ticks[i-1]][ticks[i]]++;
+    counts[ticks[i-1]]++;
+  }
+  for (let i = 0; i < 10; i++)
+    for (let j = 0; j < 10; j++)
+      matrix[i][j] = counts[i] ? matrix[i][j] / counts[i] : 0.1;
+  return matrix;
+}
+
+function detectState(ticks) {
+  if (ticks.length < 100) return 'INSUFFICIENT_DATA';
+  const freq = computeFrequency(ticks, 100);
+  const spread = Math.max(...freq) - Math.min(...freq);
+  if (spread > 0.15) return 'TRENDING';
+  if (spread < 0.04) return 'RANDOM';
+  return 'MEAN_REVERSION';
+}
+
+function generateSignals(ticks) {
+  if (ticks.length < 100) return [];
+  const signals = [];
+  const freq = computeFrequency(ticks, 100);
+  const z = computeZScores(freq);
+  const streaks = computeStreaks(ticks);
+  const markov = buildMarkov(ticks.slice(-500));
+  const last = ticks[ticks.length - 1];
+  const markovRow = last !== undefined ? markov[last] : Array(10).fill(0.1);
+  const state = detectState(ticks);
+
+  if (state === 'RANDOM') return [{ type:'NO_TRADE_ZONE', action:'NO TRADE — RANDOM PHASE', confidence:0 }];
+
+  for (let d = 0; d <= 9; d++) {
+    const mp = markovRow[d];
+    const s = streaks[d];
+    if (freq[d] < 0.06 && s.percentile > 75 && mp > 0.11) {
+      const conf = Math.min(95, Math.round(50 + Math.abs(z[d]) * 5 + s.percentile * 0.2 + (mp - 0.1) * 150));
+      if (conf >= 65) signals.push({
+        type:'DIGIT_MATCH', digit: d, confidence: conf,
+        action: `MATCH ${d}`, zScore: z[d].toFixed(2),
+        streak: s.streak, streakPct: s.percentile,
+        markovP: (mp*100).toFixed(1), freq: (freq[d]*100).toFixed(1),
+        state,
+        risk: conf >= 80 ? 'LOW' : conf >= 72 ? 'MED' : 'HIGH'
+      });
+    }
+    if (freq[d] > 0.16 && z[d] > 2.5) {
+      const conf = Math.min(92, Math.round(50 + z[d] * 4 + (freq[d] - 0.1) * 150));
+      if (conf >= 65) signals.push({
+        type:'DIGIT_DIFF', digit: d, confidence: conf,
+        action: `DIFFERS ${d}`, zScore: z[d].toFixed(2),
+        freq: (freq[d]*100).toFixed(1), state,
+        risk: conf >= 78 ? 'LOW' : 'MED'
+      });
+    }
+  }
+
+  const even = [0,2,4,6,8].reduce((s,d) => s + freq[d], 0);
+  if (Math.abs(even - 0.5) > 0.12) {
+    const conf = Math.round(50 + Math.abs(even - 0.5) * 180);
+    signals.push({
+      type: even < 0.38 ? 'EVEN_REBOUND' : 'ODD_REBOUND',
+      confidence: conf,
+      action: even < 0.38 ? 'BUY EVEN' : 'BUY ODD',
+      state, risk: 'MED'
+    });
+  }
+
+  const low = freq.slice(0,5).reduce((a,b) => a+b, 0);
+  if (Math.abs(low - 0.5) > 0.13) {
+    const conf = Math.round(50 + Math.abs(low - 0.5) * 180);
+    signals.push({ type: low < 0.37 ? 'OVER_4' : 'UNDER_5', confidence: conf,
+      action: low < 0.37 ? 'BUY OVER 4' : 'BUY UNDER 5', state, risk: 'MED' });
+  }
+
+  return signals.sort((a,b) => b.confidence - a.confidence);
+}
+
+// ── Cell color logic ───────────────────────────────────────────────────────────
+function getHeatColor(freq) {
+  if (freq > 0.14) return ['#ff3d71', Math.min(0.8, (freq - 0.1) * 10)];
+  if (freq < 0.06) return ['#00ff87', Math.min(0.8, (0.1 - freq) * 10)];
+  return ['#00e5ff', 0.1];
+}
+
+// ── Tick Colors ────────────────────────────────────────────────────────────────
+const DIGIT_COLORS = [
+  '#ff6b6b','#ff9f43','#ffd32a','#0be881','#00d2d3',
+  '#48dbfb','#a29bfe','#fd79a8','#e17055','#00cec9'
+];
+
+// ─────────────────────────────────────────────────────────────────────────────
+// COMPONENTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+function ConnectModal({ onConnect, onSkip }) {
+  const [token, setToken] = useState('');
+  const [backendUrl, setBackendUrl] = useState(BACKEND_WS);
+
+  return (
+    <div className="modal-overlay">
+      <div className="modal-box">
+        <div className="modal-title">BERLIN PARLEMO</div>
+        <div className="modal-sub">PROBABILITY MACHINE — INIT</div>
+        <input
+          className="modal-input"
+          placeholder="Deriv API Token (for auto-trading)"
+          value={token}
+          onChange={e => setToken(e.target.value)}
+          type="password"
+        />
+        <input
+          className="modal-input"
+          placeholder="Backend WS URL (e.g. wss://your-app.onrender.com)"
+          value={backendUrl}
+          onChange={e => setBackendUrl(e.target.value)}
+        />
+        <button className="modal-connect-btn" onClick={() => onConnect(token, backendUrl)}>
+          INITIALIZE ENGINE
+        </button>
+        <div className="modal-skip">
+          <button onClick={onSkip}>Skip — Demo Mode (Deriv direct)</button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function TickStream({ ticks, max = 50 }) {
+  const ref = useRef();
+  useEffect(() => {
+    if (ref.current) ref.current.scrollLeft = ref.current.scrollWidth;
+  }, [ticks]);
+
+  return (
+    <div ref={ref} className="tick-stream" style={{overflowX:'auto', paddingBottom:4}}>
+      {ticks.slice(-max).map((d, i) => (
+        <div key={i} className="tick-bubble"
+          style={{background:`${DIGIT_COLORS[d]}18`, borderColor:`${DIGIT_COLORS[d]}40`, color:DIGIT_COLORS[d]}}>
+          {d}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function DigitHeatmap({ ticks }) {
+  if (!ticks.length) return <div style={{color:'var(--muted)',fontFamily:'var(--mono)',fontSize:10,padding:20}}>COLLECTING TICKS...</div>;
+  const freq = computeFrequency(ticks, Math.min(ticks.length, 100));
+  const z = computeZScores(freq);
+  const streaks = computeStreaks(ticks);
+
+  return (
+    <div className="heatmap-grid">
+      {Array.from({length:10}, (_,d) => {
+        const [color, opacity] = getHeatColor(freq[d]);
+        const s = streaks[d];
+        return (
+          <div key={d} className="heatmap-cell"
+            style={{'--cell-color':color,'--cell-opacity':opacity}}>
+            <span className="cell-digit" style={{color}}>{d}</span>
+            <span className="cell-pct">{(freq[d]*100).toFixed(1)}%</span>
+            <span className="cell-z" style={{color: z[d] < -1.5 ? 'var(--green)' : z[d] > 1.5 ? 'var(--accent2)' : 'var(--muted)'}}>
+              z{z[d] > 0 ? '+' : ''}{z[d].toFixed(1)}
+            </span>
+            <span style={{fontSize:8,fontFamily:'var(--mono)',color:'var(--muted)',marginTop:2}}>
+              {s.streak > 0 ? `↑${s.streak}` : ''}
+            </span>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function StreakPanel({ ticks }) {
+  const streaks = computeStreaks(ticks);
+  return (
+    <div className="streak-grid">
+      {streaks.map(s => {
+        const pct = s.percentile;
+        const color = pct > 90 ? 'var(--green)' : pct > 70 ? 'var(--accent3)' : 'var(--muted)';
+        return (
+          <div key={s.digit} className="streak-item">
+            <div className="streak-digit" style={{color}}>{s.digit}</div>
+            <div className="streak-bar-wrap">
+              <div className="streak-bar" style={{width:`${pct}%`, background:color}}/>
+            </div>
+            <div className="streak-info">{s.streak} ticks · {pct}th pct</div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+function MarkovPanel({ ticks }) {
+  if (ticks.length < 50) return <div style={{color:'var(--muted)',fontFamily:'var(--mono)',fontSize:10}}>NEED 50+ TICKS</div>;
+  const matrix = buildMarkov(ticks.slice(-500));
+  const last = ticks[ticks.length - 1];
+
+  return (
+    <div className="markov-wrap">
+      <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',marginBottom:8,letterSpacing:2}}>
+        NEXT DIGIT PROBABILITY GIVEN LAST DIGIT [{last}] →
+      </div>
+      <table className="markov-table">
+        <thead>
+          <tr>
+            <th>FROM\TO</th>
+            {Array.from({length:10},(_,i)=><th key={i} style={{color:DIGIT_COLORS[i]}}>{i}</th>)}
+          </tr>
+        </thead>
+        <tbody>
+          {matrix.map((row, from) => (
+            <tr key={from}>
+              <th style={{color:DIGIT_COLORS[from]}}>{from}</th>
+              {row.map((p, to) => {
+                const intensity = Math.min(0.9, p * 6);
+                const isHighlight = from === last;
+                return (
+                  <td key={to} className="markov-cell"
+                    style={{
+                      background: `rgba(0,229,255,${intensity * 0.3})`,
+                      color: p > 0.14 ? 'var(--green)' : p < 0.06 ? 'var(--accent2)' : 'var(--muted)',
+                      fontWeight: isHighlight ? 700 : 400,
+                      outline: isHighlight ? '1px solid var(--accent)' : 'none',
+                    }}>
+                    {(p*100).toFixed(0)}%
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function SignalCard({ sig, onExecute, disabled }) {
+  const confClass = sig.confidence >= 80 ? 'high' : sig.confidence >= 70 ? 'med' : 'low';
+  const ringClass = confClass;
+
+  if (sig.type === 'NO_TRADE_ZONE') {
+    return (
+      <div className="no-trade-zone">
+        🚫 NO TRADE ZONE<br/>
+        <span style={{color:'var(--muted)',fontSize:9}}>{sig.action}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className={`signal-card conf-${confClass}`}>
+      <div className="signal-header">
+        <div>
+          <div className="signal-type">{sig.type}</div>
+          {sig.digit !== undefined && (
+            <div style={{fontFamily:'var(--display)',fontSize:32,lineHeight:1,color:DIGIT_COLORS[sig.digit]}}>
+              {sig.digit}
+            </div>
+          )}
+        </div>
+        <div className={`conf-ring ${ringClass}`}>{sig.confidence}%</div>
+      </div>
+      <div className="signal-action">{sig.action}</div>
+      <div className="signal-meta">
+        {sig.zScore && <span className="signal-tag">Z:{sig.zScore}</span>}
+        {sig.streak && <span className="signal-tag">STK:{sig.streak}</span>}
+        {sig.streakPct && <span className="signal-tag">PCT:{sig.streakPct}%</span>}
+        {sig.markovP && <span className="signal-tag">MKV:{sig.markovP}%</span>}
+        {sig.freq && <span className="signal-tag">FRQ:{sig.freq}%</span>}
+        <span className={`signal-tag`} style={{
+          color: sig.risk==='LOW'?'var(--green)':sig.risk==='MED'?'var(--accent3)':'var(--accent2)',
+          borderColor: sig.risk==='LOW'?'var(--green)':sig.risk==='MED'?'var(--accent3)':'var(--accent2)',
+        }}>
+          {sig.risk} RISK
+        </span>
+        {sig.state && <span className="signal-tag">{sig.state.replace('_',' ')}</span>}
+      </div>
+      {onExecute && (
+        <button className="execute-btn" onClick={() => onExecute(sig)} disabled={disabled}>
+          ⚡ AUTO EXECUTE
+        </button>
+      )}
+    </div>
+  );
+}
+
+function AutoTradePanel({ token, market, signals, onLog }) {
+  const [stake, setStake] = useState('1');
+  const [riskMode, setRiskMode] = useState('MED');
+  const [autoActive, setAutoActive] = useState(false);
+  const [killSwitch, setKillSwitch] = useState(false);
+  const [consecutiveLoss, setConsecutiveLoss] = useState(0);
+
+  const CONTRACT_MAP = {
+    'DIGIT_MATCH': 'DIGITMATCH',
+    'DIGIT_DIFF': 'DIGITDIFF',
+    'OVER_4': 'DIGITOVER',
+    'UNDER_5': 'DIGITUNDER',
+    'EVEN_REBOUND': 'DIGITEVEN',
+    'ODD_REBOUND': 'DIGITODD',
+  };
+
+  const getStake = (sig) => {
+    const base = parseFloat(stake) || 1;
+    if (sig.confidence >= 80) return (base * 1.5).toFixed(2);
+    if (sig.confidence >= 75) return (base * 1.0).toFixed(2);
+    return (base * 0.7).toFixed(2);
+  };
+
+  const executeSignal = (sig) => {
+    if (killSwitch) { onLog('KILL SWITCH ACTIVE — BLOCKED', 'error'); return; }
+    if (consecutiveLoss >= 4) { onLog('4 CONSECUTIVE LOSSES — AUTO KILL', 'error'); setKillSwitch(true); return; }
+    if (!token) { onLog('NO TOKEN — DEMO MODE', 'error'); return; }
+    onLog(`EXECUTING: ${sig.action} @ ${getStake(sig)} USD`, 'info');
+    // Would send via WS to backend here
+  };
+
+  const topSignal = signals.filter(s => s.confidence >= 70 && s.type !== 'NO_TRADE_ZONE')[0];
+
+  return (
+    <div>
+      <div className="trade-form">
+        <div className="trade-field">
+          <div className="trade-label">Base Stake (USD)</div>
+          <input className="trade-input" type="number" value={stake} onChange={e=>setStake(e.target.value)} min="0.35"/>
+        </div>
+        <div className="trade-field">
+          <div className="trade-label">Risk Mode</div>
+          <div className="risk-grid">
+            {['LOW','MED','HIGH'].map(r => (
+              <button key={r} className={`risk-btn ${riskMode===r?'selected':''}`} onClick={()=>setRiskMode(r)}>
+                {r}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="trade-field">
+          <div className="trade-label">Stake by Confidence</div>
+          <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',lineHeight:2}}>
+            ≥80% → {(parseFloat(stake||1)*1.5).toFixed(2)} USD<br/>
+            75–80% → {(parseFloat(stake||1)*1.0).toFixed(2)} USD<br/>
+            65–75% → {(parseFloat(stake||1)*0.7).toFixed(2)} USD
+          </div>
+        </div>
+        {topSignal && (
+          <div>
+            <div className="trade-label" style={{marginBottom:8}}>TOP SIGNAL</div>
+            <SignalCard sig={topSignal} onExecute={executeSignal} disabled={killSwitch || !token}/>
+          </div>
+        )}
+        <button
+          className={`kill-switch-btn ${killSwitch?'armed':''}`}
+          onClick={() => setKillSwitch(!killSwitch)}>
+          {killSwitch ? '🔴 KILL SWITCH ARMED' : '🟢 KILL SWITCH OFF'}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function BacktestPanel({ ticks }) {
+  if (ticks.length < 100) return <div style={{fontFamily:'var(--mono)',fontSize:10,color:'var(--muted)',padding:20}}>NEED 100+ TICKS FOR BACKTEST</div>;
+
+  const results = [];
+  const windowSize = 100;
+
+  for (let i = windowSize; i < Math.min(ticks.length, 1000); i += 10) {
+    const window = ticks.slice(i - windowSize, i);
+    const sigs = generateSignals(window);
+    const highConf = sigs.filter(s => s.confidence >= 75 && s.type !== 'NO_TRADE_ZONE');
+    highConf.forEach(sig => {
+      const nextTick = ticks[i];
+      if (nextTick === undefined) return;
+      let win = false;
+      if (sig.type === 'DIGIT_MATCH' && nextTick === sig.digit) win = true;
+      if (sig.type === 'DIGIT_DIFF' && nextTick !== sig.digit) win = true;
+      if (sig.type === 'OVER_4' && nextTick > 4) win = true;
+      if (sig.type === 'UNDER_5' && nextTick < 5) win = true;
+      if (sig.type === 'EVEN_REBOUND' && nextTick % 2 === 0) win = true;
+      if (sig.type === 'ODD_REBOUND' && nextTick % 2 !== 0) win = true;
+      results.push({ type: sig.type, confidence: sig.confidence, win });
+    });
+  }
+
+  const byType = {};
+  results.forEach(r => {
+    if (!byType[r.type]) byType[r.type] = { wins: 0, total: 0 };
+    byType[r.type].total++;
+    if (r.win) byType[r.type].wins++;
+  });
+
+  const overall = results.length ? Math.round(results.filter(r=>r.win).length / results.length * 100) : 0;
+
+  return (
+    <div>
+      <div className="metric-row" style={{gridTemplateColumns:'repeat(3,1fr)'}}>
+        <div className="metric">
+          <div className="metric-label">Total Signals</div>
+          <div className="metric-value val-blue">{results.length}</div>
+        </div>
+        <div className="metric">
+          <div className="metric-label">Overall Win Rate</div>
+          <div className={`metric-value ${overall >= 65?'val-green':overall>=55?'val-yellow':'val-red'}`}>{overall}%</div>
+        </div>
+        <div className="metric">
+          <div className="metric-label">Signal Types</div>
+          <div className="metric-value val-purple">{Object.keys(byType).length}</div>
+        </div>
+      </div>
+      <table className="backtest-table">
+        <thead>
+          <tr><th>SIGNAL TYPE</th><th>SIGNALS</th><th>WINS</th><th>WIN RATE</th></tr>
+        </thead>
+        <tbody>
+          {Object.entries(byType).map(([type, d]) => {
+            const wr = Math.round(d.wins/d.total*100);
+            return (
+              <tr key={type}>
+                <td style={{color:'var(--accent)',fontWeight:700}}>{type}</td>
+                <td>{d.total}</td>
+                <td style={{color:'var(--green)'}}>{d.wins}</td>
+                <td style={{color:wr>=65?'var(--green)':wr>=55?'var(--accent3)':'var(--accent2)',fontWeight:700}}>{wr}%</td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+// ── Main App ──────────────────────────────────────────────────────────────────
+function App() {
+  const [showModal, setShowModal] = useState(true);
+  const [token, setToken] = useState('');
+  const [activeMarket, setActiveMarket] = useState('R_75');
+  const [activeTab, setActiveTab] = useState('heatmap');
+  const [activeNav, setActiveNav] = useState('dashboard');
+  const [marketTicks, setMarketTicks] = useState(() => Object.fromEntries(MARKETS.map(m => [m, []])));
+  const [marketStates, setMarketStates] = useState(() => Object.fromEntries(MARKETS.map(m => [m, 'INSUFFICIENT_DATA'])));
+  const [marketSignals, setMarketSignals] = useState(() => Object.fromEntries(MARKETS.map(m => [m, []])));
+  const [lastDigits, setLastDigits] = useState(() => Object.fromEntries(MARKETS.map(m => [m, null])));
+  const [connected, setConnected] = useState(false);
+  const [tradeLogs, setTradeLogs] = useState([]);
+  const [tickSpeeds, setTickSpeeds] = useState(() => Object.fromEntries(MARKETS.map(m => [m, 1000])));
+  const derivSockets = useRef({});
+
+  const addLog = (msg, type='info') => {
+    const entry = { msg, type, time: new Date().toLocaleTimeString() };
+    setTradeLogs(l => [entry, ...l].slice(0, 50));
+  };
+
+  const connectDeriv = useCallback((marketList) => {
+    marketList.forEach(market => {
+      if (derivSockets.current[market]) {
+        try { derivSockets.current[market].close(); } catch(e) {}
+      }
+      const ws = new WebSocket(DERIV_WS);
+      derivSockets.current[market] = ws;
+
+      ws.onopen = () => {
+        ws.send(JSON.stringify({ ticks: market, subscribe: 1 }));
+        setConnected(true);
+      };
+
+      ws.onmessage = (e) => {
+        try {
+          const msg = JSON.parse(e.data);
+          if (msg.tick) {
+            const price = msg.tick.quote;
+            const str = price.toString().replace('.','');
+            const digit = parseInt(str[str.length-1]);
+            const now = Date.now();
+
+            setMarketTicks(prev => {
+              const prevTicks = prev[market];
+              const newTicks = [...prevTicks, digit].slice(-10000);
+              return { ...prev, [market]: newTicks };
+            });
+            setLastDigits(prev => ({ ...prev, [market]: digit }));
+          }
+        } catch(e) {}
+      };
+
+      ws.onclose = () => {
+        setTimeout(() => connectDeriv([market]), 3000);
+      };
+    });
+  }, []);
+
+  // Update signals on tick change
+  useEffect(() => {
+    const ticks = marketTicks[activeMarket];
+    if (ticks.length >= 100) {
+      const sigs = generateSignals(ticks);
+      setMarketSignals(prev => ({ ...prev, [activeMarket]: sigs }));
+      setMarketStates(prev => ({ ...prev, [activeMarket]: detectState(ticks) }));
+    }
+  }, [marketTicks, activeMarket]);
+
+  // Also update all markets' signals periodically
+  useEffect(() => {
+    const interval = setInterval(() => {
+      MARKETS.forEach(m => {
+        const ticks = marketTicks[m];
+        if (ticks.length >= 100) {
+          setMarketSignals(prev => ({ ...prev, [m]: generateSignals(ticks) }));
+          setMarketStates(prev => ({ ...prev, [m]: detectState(ticks) }));
+        }
+      });
+    }, 2000);
+    return () => clearInterval(interval);
+  }, [marketTicks]);
+
+  const handleConnect = (t, backendUrl) => {
+    setToken(t);
+    setShowModal(false);
+    connectDeriv(MARKETS);
+  };
+
+  const handleSkip = () => {
+    setShowModal(false);
+    connectDeriv(MARKETS);
+  };
+
+  const ticks = marketTicks[activeMarket];
+  const signals = marketSignals[activeMarket];
+  const state = marketStates[activeMarket];
+  const lastDigit = lastDigits[activeMarket];
+  const freq100 = ticks.length >= 10 ? computeFrequency(ticks, 100) : null;
+
+  const highConfSignals = signals.filter(s => s.confidence >= 65 && s.type !== 'NO_TRADE_ZONE');
+  const inNoTradeZone = signals.some(s => s.type === 'NO_TRADE_ZONE');
+  const topConf = highConfSignals[0]?.confidence || 0;
+
+  return (
+    <div className="app">
+      {showModal && <ConnectModal onConnect={handleConnect} onSkip={handleSkip}/>}
+
+      {/* ── Header ── */}
+      <header className="header">
+        <div className="header-brand">
+          <div>
+            <div className="header-logo">BERLIN PARLEMO</div>
+            <div className="header-sub">Probability Machine v1.0</div>
+          </div>
+        </div>
+        <nav className="header-nav">
+          {['dashboard','autotrade','analytics','settings'].map(v => (
+            <button key={v} className={`nav-btn ${activeNav===v?'active':''}`} onClick={()=>setActiveNav(v)}>
+              {v}
+            </button>
+          ))}
+        </nav>
+        <div className="header-status">
+          <div className={`status-dot`} style={{background: connected ? 'var(--green)' : 'var(--accent2)',boxShadow:`0 0 8px ${connected?'var(--green)':'var(--accent2)'}`}}/>
+          {connected ? 'LIVE' : 'CONNECTING'}
+          <span style={{marginLeft:8}}>{ticks.length.toLocaleString()} TICKS</span>
+        </div>
+      </header>
+
+      {/* ── Main ── */}
+      <main className="main">
+        {/* ── Sidebar ── */}
+        <aside className="sidebar">
+          <div className="sidebar-label">Markets</div>
+          {MARKETS.map(m => {
+            const mSigs = marketSignals[m].filter(s => s.confidence >= 70 && s.type !== 'NO_TRADE_ZONE');
+            const mState = marketStates[m];
+            const mLast = lastDigits[m];
+            return (
+              <button key={m} className={`market-btn ${activeMarket===m?'active':''}`}
+                onClick={() => setActiveMarket(m)}>
+                <div>
+                  <div className="market-name">{m.replace('_','')}</div>
+                  <div className={`market-state-badge state-${mState}`}>
+                    {mState.replace('_',' ').substring(0,8)}
+                  </div>
+                </div>
+                <div style={{display:'flex',flexDirection:'column',alignItems:'flex-end',gap:4}}>
+                  {mLast !== null && <div className="market-digit" style={{color:DIGIT_COLORS[mLast]}}>{mLast}</div>}
+                  {mSigs.length > 0 && <div className="market-signals-count">{mSigs.length}</div>}
+                </div>
+              </button>
+            );
+          })}
+
+          <div className="sidebar-section">
+            <div className="sidebar-label">Engine State</div>
+            <div style={{padding:'8px 12px'}}>
+              <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',lineHeight:2}}>
+                STATE<br/>
+                <span className={`market-state-badge state-${state}`}>{state.replace(/_/g,' ')}</span>
+              </div>
+              <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',lineHeight:2,marginTop:8}}>
+                ZONE<br/>
+                <span style={{color: inNoTradeZone ? 'var(--accent2)' : 'var(--green)', fontWeight:700}}>
+                  {inNoTradeZone ? '🚫 NO TRADE' : '✅ TRADEABLE'}
+                </span>
+              </div>
+            </div>
+          </div>
+        </aside>
+
+        {/* ── Center panel ── */}
+        <div className="center-panel">
+          <div style={{height:2}}>{!connected && <div className="loading-bar"/>}</div>
+          {/* Live tick row */}
+          <div style={{padding:'8px 20px 0', background:'var(--bg2)', borderBottom:'1px solid var(--border)'}}>
+            <div style={{display:'flex',alignItems:'center',gap:12,marginBottom:4}}>
+              <span style={{fontFamily:'var(--display)',fontSize:14,color:'var(--muted)',letterSpacing:2}}>{MARKET_LABELS[activeMarket]}</span>
+              {lastDigit !== null && (
+                <span style={{fontFamily:'var(--display)',fontSize:32,color:DIGIT_COLORS[lastDigit],lineHeight:1}}>
+                  {lastDigit}
+                </span>
+              )}
+              <span className={`market-state-badge state-${state}`}>{state.replace(/_/g,' ')}</span>
+              {topConf > 0 && (
+                <span style={{fontFamily:'var(--mono)',fontSize:9,color:topConf>=80?'var(--green)':topConf>=70?'var(--accent3)':'var(--accent)',
+                  background: topConf>=80?'rgba(0,255,135,0.1)':'rgba(0,229,255,0.1)',
+                  border:`1px solid ${topConf>=80?'var(--green)':'var(--accent)'}`,
+                  padding:'2px 8px',borderRadius:3,fontWeight:700}}>
+                  TOP SIG: {topConf}%
+                </span>
+              )}
+            </div>
+            <TickStream ticks={ticks} max={40}/>
+          </div>
+
+          <div className="panel-tabs">
+            {['heatmap','streaks','markov','backtest'].map(t => (
+              <button key={t} className={`panel-tab ${activeTab===t?'active':''}`} onClick={()=>setActiveTab(t)}>
+                {t}
+              </button>
+            ))}
+          </div>
+
+          <div className="panel-body">
+            {/* Metrics row */}
+            <div className="metric-row">
+              <div className="metric">
+                <div className="metric-label">Ticks</div>
+                <div className="metric-value val-blue">{ticks.length.toLocaleString()}</div>
+                <div className="metric-sub">buffered</div>
+              </div>
+              <div className="metric">
+                <div className="metric-label">Signals</div>
+                <div className={`metric-value ${highConfSignals.length>0?'val-green':'val-muted'}`}>{highConfSignals.length}</div>
+                <div className="metric-sub">≥65% conf</div>
+              </div>
+              <div className="metric">
+                <div className="metric-label">Top Conf</div>
+                <div className={`metric-value ${topConf>=80?'val-green':topConf>=70?'val-yellow':'val-red'}`}>
+                  {topConf || '--'}%
+                </div>
+                <div className="metric-sub">highest signal</div>
+              </div>
+              <div className="metric">
+                <div className="metric-label">State</div>
+                <div className={`metric-value ${state==='MEAN_REVERSION'?'val-green':state==='TRENDING'?'val-yellow':'val-red'}`}
+                  style={{fontSize:18,paddingTop:4}}>
+                  {state === 'MEAN_REVERSION' ? 'MR' : state === 'TRENDING' ? 'TRD' : state === 'RANDOM' ? 'RND' : '---'}
+                </div>
+                <div className="metric-sub">{state.replace(/_/g,' ')}</div>
+              </div>
+            </div>
+
+            {activeTab === 'heatmap' && (
+              <div>
+                <div className="card">
+                  <div className="card-title">Digit Frequency Heatmap — Last 100 Ticks</div>
+                  <DigitHeatmap ticks={ticks}/>
+                </div>
+                {freq100 && (
+                  <div className="card">
+                    <div className="card-title">Distribution Windows</div>
+                    <div style={{overflowX:'auto'}}>
+                      <table className="backtest-table">
+                        <thead>
+                          <tr><th>DIGIT</th>
+                            {[50,100,300].map(w=><th key={w}>W{w}</th>)}
+                            <th>Z-SCORE</th><th>IMBALANCE</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {Array.from({length:10},(_,d)=>{
+                            const f = [
+                              computeFrequency(ticks,50)[d],
+                              computeFrequency(ticks,100)[d],
+                              computeFrequency(ticks,300)[d],
+                            ];
+                            const z = (computeZScores(computeFrequency(ticks,100)))[d];
+                            const imb = f[1] - 0.1;
+                            return (
+                              <tr key={d}>
+                                <td style={{color:DIGIT_COLORS[d],fontWeight:700}}>{d}</td>
+                                {f.map((v,i)=>(
+                                  <td key={i} style={{color:v>0.14?'var(--accent2)':v<0.06?'var(--green)':'var(--muted)'}}>
+                                    {(v*100).toFixed(1)}%
+                                  </td>
+                                ))}
+                                <td style={{color:Math.abs(z)>2?'var(--accent3)':'var(--muted)',fontWeight:Math.abs(z)>2?700:400}}>
+                                  {z>0?'+':''}{z.toFixed(2)}
+                                </td>
+                                <td style={{color:imb>0.04?'var(--accent2)':imb<-0.04?'var(--green)':'var(--muted)'}}>
+                                  {imb>0?'+':''}{(imb*100).toFixed(1)}%
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {activeTab === 'streaks' && (
+              <div className="card">
+                <div className="card-title">Streak Exhaustion Model — Current "Not Digit" Streaks</div>
+                <StreakPanel ticks={ticks}/>
+                <div style={{marginTop:16,fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',lineHeight:2}}>
+                  ℹ Bar length = streak percentile vs geometric distribution<br/>
+                  GREEN = high mean-reversion pressure (95th+ pct) → trade opportunity
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'markov' && (
+              <div className="card">
+                <div className="card-title">Markov Transition Matrix</div>
+                <MarkovPanel ticks={ticks}/>
+                <div style={{marginTop:16,fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)',lineHeight:2}}>
+                  GREEN cells = overrepresented transitions | RED = underrepresented<br/>
+                  Highlighted row = last digit → probable next digits
+                </div>
+              </div>
+            )}
+
+            {activeTab === 'backtest' && (
+              <div className="card">
+                <div className="card-title">Signal Backtester — Last 1000 Ticks</div>
+                <BacktestPanel ticks={ticks}/>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* ── Right panel — signals ── */}
+        <aside className="right-panel">
+          <div className="right-header">
+            {activeNav === 'autotrade' ? 'AUTO TRADE' : 'SIGNALS'}
+            {highConfSignals.length > 0 && <span className="signal-count-badge">{highConfSignals.length}</span>}
+          </div>
+
+          {activeNav === 'autotrade' ? (
+            <div>
+              <AutoTradePanel token={token} market={activeMarket} signals={signals} onLog={addLog}/>
+              <div className="trade-log">
+                <div style={{fontFamily:'var(--mono)',fontSize:8,color:'var(--muted)',letterSpacing:2,marginBottom:8}}>TRADE LOG</div>
+                {tradeLogs.length === 0 && <div style={{fontFamily:'var(--mono)',fontSize:9,color:'var(--muted)'}}>No activity yet</div>}
+                {tradeLogs.map((l,i) => (
+                  <div key={i} className={`trade-log-entry ${l.type}`}>
+                    [{l.time}] {l.msg}
+                  </div>
+                ))}
+              </div>
+            </div>
+          ) : (
+            <div className="signals-list">
+              {signals.length === 0 && (
+                <div className="no-signal">
+                  COLLECTING DATA...<br/>
+                  {ticks.length} / 100 TICKS<br/>
+                  <div style={{marginTop:8,width:'100%',height:2,background:'var(--border)',borderRadius:1}}>
+                    <div style={{height:'100%',background:'var(--accent)',width:`${Math.min(100,(ticks.length/100)*100)}%`,transition:'width 0.5s',borderRadius:1}}/>
+                  </div>
+                </div>
+              )}
+              {inNoTradeZone && <div className="no-trade-zone">🚫 NO TRADE ZONE<br/><span style={{fontSize:8,color:'var(--muted)'}}>Market in random phase</span></div>}
+              {highConfSignals.map((sig, i) => (
+                <SignalCard key={i} sig={sig} onExecute={(s) => {
+                  addLog(`SIGNAL: ${s.action} ${s.confidence}%`, 'info');
+                  setActiveNav('autotrade');
+                }}/>
+              ))}
+              {!inNoTradeZone && highConfSignals.length === 0 && ticks.length >= 100 && (
+                <div className="no-signal">
+                  NO HIGH-CONF SIGNALS<br/>
+                  ENGINE FILTERING...<br/>
+                  <span style={{fontSize:8,color:'var(--muted)'}}>This is the edge — only trade when confident</span>
+                </div>
+              )}
+            </div>
+          )}
+        </aside>
+      </main>
+    </div>
+  );
+}
+
+ReactDOM.createRoot(document.getElementById('root')).render(<App/>);
+</script>
+</body>
+</html>
+
