@@ -1,4 +1,12 @@
 {
+  "name": "berlin-parlemo",
+  "version": "1.0.0",
+  "description": "Trading analysis engine for Deriv digits",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
   "dependencies": {
     "express": "^5.2.1"
   }
