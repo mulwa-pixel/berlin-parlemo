@@ -493,7 +493,8 @@ const { useState, useEffect, useRef, useCallback } = React;
 // ── Constants ──────────────────────────────────────────────────────────────────
 const MARKETS = ['R_10','R_25','R_50','R_75','R_100'];
 const MARKET_LABELS = { R_10:'Volatility 10',R_25:'Volatility 25',R_50:'Volatility 50',R_75:'Volatility 75',R_100:'Volatility 100' };
-const BACKEND_WS = (location.protocol === 'https:' ? 'wss://' : 'ws://') + location.host.replace(/:\d+/, '') + ':3001';
+const BACKEND_WS = 'wss://berlin-parlemo-backend.onrender.com';
+
 
 // ── Deriv Direct (fallback if no backend) ─────────────────────────────────────
 const DERIV_WS = 'wss://ws.binaryws.com/websockets/v3?app_id=1089';
